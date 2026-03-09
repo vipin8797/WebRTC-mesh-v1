@@ -54,6 +54,33 @@ io.on("connection", (socket) => {
     console.log("Connected:", socket.id);
 
 
+    socket.on("user-joined",(username)=>{
+        if(!username){
+            console.error("usernmae is not found in backend event");
+            return;
+        }
+        // //checking for duplicte socketId
+        // if(allUsers[socket.id]){
+        //     console.warn("dublicate socket id is found");
+        //     socket.emit('forced-relode');
+        // }
+
+        allUsers[socket.id]= {username:username};
+        console.log("joined,",username);
+
+        io.emit("updated-users",(allUsers));
+    })
+
+
+
+
+   socket.on("disconnect", (reason) => {
+        console.log("Disconnected:", socket.id, "Reason:", reason);
+        delete allUsers[socket.id];
+        io.emit("updated-users", (allUsers));
+    });
+
+
 
 });
 
