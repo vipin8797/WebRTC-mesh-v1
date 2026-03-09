@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RTC Connect</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+
+    <style>
+
+        /* ============================================================
+           CSS VARIABLES — sab colors, sizes, shadows yahan se control
+           ============================================================ */
+        :root {
+            --bg-base:        #1c1c1c;      /* Main background       */
+            --bg-surface:     #242424;      /* Cards / panels        */
+            --bg-raised:      #2d2d2d;      /* Inputs / thumbnails   */
+
+            --accent:         #2d8cff;      /* Zoom blue — buttons   */
+            --accent-hover:   #1a7ae8;
+            --accent-glow:    rgba(45,140,255,0.25);
+
+            --danger:         #e03e3e;      /* Mute / end call red   */
+            --danger-hover:   #c73232;
+            --success:        #27ae60;      /* Online dot / connect  */
+
+            --text-primary:   #ffffff;
+            --text-secondary: #b8b8b8;
+            --text-muted:     #717171;
+
+            --border-subtle:  rgba(255,255,255,0.06);
+            --border-light:   rgba(255,255,255,0.12);
+
+            --radius-xs:   4px;
+            --radius-sm:   8px;
+            --radius-md:   12px;
+            --radius-lg:   16px;
+            --radius-pill: 9999px;
+
+            --shadow-md:  0 4px 20px rgba(0,0,0,0.5);
+            --shadow-lg:  0 8px 40px rgba(0,0,0,0.6);
+
+            --ease:       all 0.18s ease;
+            --ease-panel: all 0.26s cubic-bezier(0.4,0,0.2,1);
+        }
+
+
+        /* ============================================================
+           RESET & BASE
+           ============================================================ */
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+        body {
+            font-family: 'DM Sans', -apple-system, sans-serif;
+            background: var(--bg-base);
+            color: var(--text-primary);
+            height: 100vh; width: 100vw;
+            overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        button { cursor:pointer; border:none; outline:none; font-family:inherit; transition: var(--ease); }
+        input  { font-family:inherit; outline:none; }
+        svg    { display:block; flex-shrink:0; }
+
+        ::-webkit-scrollbar       { width:4px; height:4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius:10px; }
+
+
+        /* ============================================================
+           SCREEN SYSTEM
+           — app.js mein .active class add/remove se screens switch hoti hain
+              loginScreen.classList.remove('active')
+              mainApp.classList.add('active')
+           ============================================================ */
+        .screen {
+            position: absolute; inset: 0;
+            display: flex;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .screen.active { opacity:1; pointer-events:all; }
+
+
+        /* ============================================================
+           SCREEN 1 — LOGIN
+           IDs used by app.js:
+             #login-screen   — screen container
+             #username-input — text input
+             #join-btn       — submit button
+           ============================================================ */
+        #login-screen {
+            align-items: center; justify-content: center;
+            background:
+                radial-gradient(ellipse 70% 50% at 50% 0%, rgba(45,140,255,0.07) 0%, transparent 70%),
+                var(--bg-base);
+        }
+
+        .login-card {
+            width:100%; max-width:400px; padding: 0 24px;
+            animation: fadeUp 0.35s ease;
+        }
+        @keyframes fadeUp {
+            from { transform:translateY(14px); opacity:0; }
+            to   { transform:translateY(0);    opacity:1; }
+        }
+
+        .login-logo {
+            width:52px; height:52px;
+            background: var(--accent); border-radius: var(--radius-md);
+            display:flex; align-items:center; justify-content:center;
+            margin-bottom:24px;
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        .login-card h1 { font-size:24px; font-weight:600; letter-spacing:-0.3px; margin-bottom:6px; }
+        .login-card p  { font-size:14px; color:var(--text-muted); margin-bottom:28px; line-height:1.5; }
+
+        .login-label {
+            display:block; font-size:13px; font-weight:500;
+            color:var(--text-secondary); margin-bottom:8px;
+        }
+
+        /* Text input — #username-input */
+        .login-input {
+            width:100%; height:46px; padding: 0 16px;
+            background: var(--bg-raised);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            color: var(--text-primary); font-size:15px;
+            transition: var(--ease); margin-bottom:14px;
+        }
+        .login-input::placeholder { color:var(--text-muted); }
+        .login-input:focus        { border-color:var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+        .login-input.error        { border-color:var(--danger); }
+
+        /* Join button — #join-btn */
+        .btn-join {
+            width:100%; height:46px;
+            background: var(--accent); color:white;
+            font-size:15px; font-weight:600;
+            border-radius: var(--radius-md);
+        }
+        .btn-join:hover  { background:var(--accent-hover); transform:translateY(-1px); box-shadow: 0 6px 18px var(--accent-glow); }
+        .btn-join:active { transform:translateY(0); }
+
+
+        /* ============================================================
+           SCREEN 2 — MAIN APP
+           ============================================================ */
+        #main-app { flex-direction:column; }
+
+
+        /* ── TOP BAR ──────────────────────────────────────────────────
+           IDs used by app.js:
+             #nav-status        — center status text (setNavStatus writes innerHTML)
+             #participants-btn  — dropdown toggle button
+             #online-count-text — "Participants (N)" text node
+             #online-menu       — dropdown panel (.open class toggle)
+             #online-list       — .user-row cards inject here (updateOnlineUsers)
+           ─────────────────────────────────────────────────────────── */
+        .top-bar {
+            height:52px; padding: 0 18px;
+            display:flex; align-items:center; justify-content:space-between;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border-subtle);
+            flex-shrink:0; gap:12px; z-index:100;
+        }
+
+        .brand {
+            display:flex; align-items:center; gap:10px;
+            font-size:15px; font-weight:600; letter-spacing:-0.2px; flex-shrink:0;
+        }
+        .brand-icon {
+            width:28px; height:28px;
+            background: var(--accent); border-radius:var(--radius-xs);
+            display:flex; align-items:center; justify-content:center;
+        }
+
+        /*
+         * setNavStatus(html) se innerHTML update hota hai.
+         * Span CSS classes:
+         *   .highlight → white bold text
+         *   .connected → green bold text
+         */
+        #nav-status {
+            font-size:13px; color:var(--text-muted);
+            background: var(--bg-raised); padding: 5px 14px;
+            border-radius: var(--radius-pill);
+            border: 1px solid var(--border-subtle);
+            white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+            max-width:280px;
+        }
+        #nav-status .highlight { color:var(--text-primary); font-weight:500; }
+        #nav-status .connected { color:var(--success); font-weight:600; }
+
+        .participants-btn {
+            height:34px; padding: 0 14px;
+            background: var(--bg-raised);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-size:13px; font-weight:500;
+            display:flex; align-items:center; gap:8px;
+        }
+        .participants-btn:hover { background:rgba(255,255,255,0.06); color:var(--text-primary); }
+
+        .online-dot {
+            width:7px; height:7px; border-radius:50%;
+            background:var(--success); box-shadow: 0 0 6px var(--success); flex-shrink:0;
+        }
+
+        .dropdown-anchor { position:relative; }
+
+        #online-menu {
+            position:absolute; top:calc(100% + 8px); right:0;
+            width:260px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg); overflow:hidden;
+            opacity:0; visibility:hidden;
+            transform: translateY(-6px) scale(0.97);
+            transform-origin: top right;
+            transition: var(--ease-panel); z-index:300;
+        }
+        #online-menu.open { opacity:1; visibility:visible; transform:translateY(0) scale(1); }
+
+        .dropdown-header {
+            padding: 10px 16px 8px;
+            font-size:11px; font-weight:600; letter-spacing:0.6px;
+            text-transform:uppercase; color:var(--text-muted);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        #online-list { padding:6px; }
+
+        /*
+         * updateOnlineUsers() se inject hone wala user row.
+         * data-socket-id aur data-username attributes use hote hain calling() mein.
+         */
+        .user-row {
+            display:flex; align-items:center; justify-content:space-between;
+            padding: 8px 10px; border-radius: var(--radius-sm);
+            transition: var(--ease);
+        }
+        .user-row:hover { background:rgba(255,255,255,0.04); }
+
+        .user-info { display:flex; align-items:center; gap:10px; }
+
+        .avatar {
+            width:30px; height:30px; border-radius:50%;
+            background: var(--accent);
+            display:flex; align-items:center; justify-content:center;
+            font-size:12px; font-weight:700; flex-shrink:0;
+        }
+
+        .user-name {
+            font-size:14px; color:var(--text-primary);
+            max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+        }
+
+        .call-btn {
+            height:26px; padding: 0 10px;
+            background:var(--success); color:white;
+            border-radius: var(--radius-xs);
+            font-size:12px; font-weight:600; flex-shrink:0;
+        }
+        .call-btn:hover { background:#219653; transform:scale(1.04); }
+
+        .dropdown-empty {
+            padding:22px 16px; text-align:center;
+            font-size:13px; color:var(--text-muted);
+        }
+
+
+        /* ── MAIN CONTENT ─────────────────────────────────────────── */
+        .main-content { flex:1; display:flex; overflow:hidden; position:relative; }
+
+
+        /* ── VIDEO STAGE ──────────────────────────────────────────────
+           IDs used by app.js:
+             #speaker-view          — main remote video area
+             #waiting-overlay       — add .hidden after setRemoteStream()
+             #remote-video-element  — remote stream srcObject target
+             #speaker-label         — remote name label (add .visible to show)
+             #local-pip             — PiP wrapper
+               .is-sharing          — screen sharing active (blue ring)
+               .cam-off             — camera muted (placeholder shown)
+             #local-video-element   — local stream srcObject target
+             #pip-label             — "You" text label inside PiP
+             #participant-strip     — mesh thumbnails inject here (.thumb cards)
+           ─────────────────────────────────────────────────────────── */
+        .video-stage {
+            flex:1; display:flex; flex-direction:column;
+            padding:12px; gap:12px; overflow:hidden;
+        }
+
+        .speaker-view {
+            flex:1; position:relative;
+            background: var(--bg-raised);
+            border-radius: var(--radius-lg);
+            overflow:hidden; min-height:0;
+            gap: 4px; /* grid gap jab multiple peers hain */
+        }
+
+        /* ── REMOTE VIDEO CARD ──────────────────────────────────────
+           setRemoteStream(socketId, stream) se dynamically banta hai.
+           Har peer ka apna .remote-card hota hai — id: remote-{socketId}
+           ─────────────────────────────────────────────────────────── */
+        .remote-card {
+            position: relative;
+            background: var(--bg-raised);
+            overflow: hidden;
+            min-height: 0;
+            border-radius: var(--radius-sm);
+        }
+
+        /* Remote peer naam badge — .visible class se dikhta hai */
+        .remote-label {
+            position: absolute; bottom: 8px; left: 8px; z-index: 5;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(6px);
+            color: white; font-size: 12px; font-weight: 500;
+            padding: 3px 10px; border-radius: var(--radius-xs);
+            pointer-events: none;
+            opacity: 0; transition: var(--ease);
+        }
+        .remote-label.visible { opacity: 1; }
+
+        /* Waiting overlay — add .hidden class to hide */
+        #waiting-overlay {
+            position:absolute; inset:0; z-index:2;
+            display:flex; flex-direction:column;
+            align-items:center; justify-content:center; gap:14px;
+            background: var(--bg-raised);
+            transition: opacity 0.3s ease;
+        }
+        #waiting-overlay.hidden { opacity:0; pointer-events:none; }
+
+        .waiting-icon {
+            width:60px; height:60px; border-radius:50%;
+            background:rgba(255,255,255,0.04);
+            border: 1px solid var(--border-light);
+            display:flex; align-items:center; justify-content:center; color:var(--text-muted);
+        }
+        .waiting-text { font-size:14px; color:var(--text-muted); }
+
+        /* Remote speaker name — add .visible to show */
+        #speaker-label {
+            position:absolute; bottom:12px; left:12px; z-index:5;
+            background: rgba(0,0,0,0.6); backdrop-filter:blur(6px);
+            color:white; font-size:13px; font-weight:500;
+            padding: 3px 12px; border-radius: var(--radius-xs);
+            pointer-events:none; opacity:0; transition: var(--ease);
+        }
+        #speaker-label.visible { opacity:1; }
+
+        /* Shared video element style */
+        .video-el {
+            width:100%; height:100%;
+            object-fit:cover; background:transparent; display:block;
+        }
+
+        /* ── LOCAL PiP ──────────────────────────────────────────────
+           CSS classes (toggled from app.js):
+             .is-sharing → blue border ring (screen sharing on)
+             .cam-off    → video hidden, placeholder shown
+           ─────────────────────────────────────────────────────────── */
+        #local-pip {
+            position:absolute; bottom:16px; right:16px;
+            width:210px; height:130px;
+            background: var(--bg-surface);
+            border-radius: var(--radius-md);
+            border: 2px solid rgba(255,255,255,0.14);
+            box-shadow: var(--shadow-md);
+            overflow:hidden; z-index:10;
+            transition: var(--ease-panel);
+        }
+        #local-pip:hover { border-color:rgba(255,255,255,0.28); transform:scale(1.02); }
+
+        #local-pip.is-sharing {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent), var(--shadow-md);
+        }
+
+        .share-badge {
+            display:none;
+            position:absolute; top:6px; left:8px; z-index:5;
+            background:var(--accent); color:white;
+            font-size:10px; font-weight:700; letter-spacing:0.3px;
+            padding: 2px 8px; border-radius: var(--radius-xs);
+        }
+        #local-pip.is-sharing .share-badge { display:block; }
+
+        #local-pip.cam-off video      { opacity:0; }
+        #local-pip.cam-off .cam-off-msg { display:flex; }
+
+        .cam-off-msg {
+            display:none;
+            position:absolute; inset:0; z-index:3;
+            align-items:center; justify-content:center;
+            flex-direction:column; gap:6px;
+            color:var(--text-muted); font-size:12px;
+        }
+        .cam-off-msg svg { opacity:0.35; }
+
+        #pip-label {
+            position:absolute; bottom:6px; left:8px; z-index:5;
+            background: rgba(0,0,0,0.55); backdrop-filter:blur(4px);
+            color:white; font-size:11px; font-weight:500;
+            padding: 2px 8px; border-radius: var(--radius-xs);
+            pointer-events:none;
+        }
+
+        /* ── PARTICIPANT STRIP ──────────────────────────────────────
+           Mesh upgrade ke liye ready.
+           addParticipantThumb() se .thumb cards inject hote hain.
+           Strip empty hone pe automatically hidden hai.
+           ─────────────────────────────────────────────────────────── */
+        #participant-strip {
+            height:92px; flex-shrink:0;
+            display:flex; gap:8px; align-items:center;
+            overflow-x:auto; overflow-y:hidden; padding: 2px 0;
+        }
+        #participant-strip:empty { display:none; }
+
+        .thumb {
+            width:148px; height:84px; flex-shrink:0;
+            background: var(--bg-raised); border-radius: var(--radius-sm);
+            border: 1.5px solid var(--border-subtle);
+            overflow:hidden; position:relative; cursor:pointer;
+            transition: var(--ease);
+        }
+        .thumb:hover          { border-color:var(--accent); }
+        .thumb.active-speaker { border-color:var(--success); }
+
+        .thumb-label {
+            position:absolute; bottom:4px; left:6px; z-index:3;
+            background:rgba(0,0,0,0.65); color:white;
+            font-size:10px; font-weight:500;
+            padding: 1px 6px; border-radius:3px;
+        }
+
+
+        /* ── CONTROLS BAR ────────────────────────────────────────────
+           IDs used by app.js:
+             #btn-mic    — .muted  class = muted state (red tint)
+             #btn-video  — .off    class = cam off    (red tint)
+             #btn-screen — .active class = sharing on (blue tint)
+             #btn-chat   — .active class = panel open (blue tint)
+             #btn-end    — always solid red
+
+           Each .ctrl-btn contains:
+             svg           — icon (fill:currentColor)
+             .ctrl-label   — small text below icon
+           ─────────────────────────────────────────────────────────── */
+        .controls-wrap {
+            position:absolute; bottom:24px; left:50%;
+            transform:translateX(-50%); z-index:50;
+        }
+
+        .controls-bar {
+            display:flex; align-items:center; gap:4px;
+            padding: 8px 14px;
+            background:rgba(28,28,28,0.92);
+            backdrop-filter:blur(14px);
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-pill);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .ctrl-divider { width:1px; height:26px; background:var(--border-subtle); margin: 0 4px; flex-shrink:0; }
+
+        .ctrl-btn {
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            gap:3px; width:52px; height:52px;
+            border-radius: var(--radius-sm);
+            background:rgba(255,255,255,0.06);
+            color:var(--text-secondary); flex-shrink:0;
+        }
+        .ctrl-btn svg { width:20px; height:20px; fill:currentColor; }
+        .ctrl-btn:hover { background:rgba(255,255,255,0.12); color:var(--text-primary); }
+
+        .ctrl-label {
+            font-size:9px; font-weight:500; letter-spacing:0.3px;
+            color:var(--text-muted); user-select:none; line-height:1;
+        }
+        .ctrl-btn:hover .ctrl-label { color:var(--text-secondary); }
+
+        /* Muted / off states — red */
+        .ctrl-btn.muted, .ctrl-btn.off { background:rgba(224,62,62,0.14); color:var(--danger); }
+        .ctrl-btn.muted .ctrl-label,
+        .ctrl-btn.off   .ctrl-label   { color:var(--danger); opacity:0.8; }
+
+        /* Active state — blue */
+        .ctrl-btn.active { background:rgba(45,140,255,0.14); color:var(--accent); }
+        .ctrl-btn.active .ctrl-label { color:var(--accent); opacity:0.85; }
+
+        /* End call — always red */
+        .ctrl-btn.end {
+            background:var(--danger); color:white;
+            width:56px; height:56px; border-radius: var(--radius-md);
+            box-shadow: 0 4px 14px rgba(224,62,62,0.35);
+        }
+        .ctrl-btn.end:hover  { background:var(--danger-hover); transform:scale(1.06); }
+        .ctrl-btn.end .ctrl-label { color:rgba(255,255,255,0.7); }
+
+
+        /* ── CHAT PANEL ──────────────────────────────────────────────
+           IDs used by app.js:
+             #chat-panel       — .open class = slide in from right
+             #close-chat       — close button
+             #chat-messages    — appendChatMessage() injects .msg divs here
+             #typingIndicator  — style.display 'block'/'none'
+             #chat-input-field — user types here
+             #btn-send         — send button
+
+           Message bubble classes:
+             .msg.sent     — right aligned, blue bg
+             .msg.received — left aligned, dark bg
+             .msg-system   — centered, pill shaped, muted color
+           ─────────────────────────────────────────────────────────── */
+        #chat-panel {
+            width:316px; flex-shrink:0;
+            display:flex; flex-direction:column;
+            background: var(--bg-surface);
+            border-left: 1px solid var(--border-subtle);
+            position:absolute; right:0; top:0; bottom:0;
+            transform:translateX(100%);
+            transition: transform 0.26s cubic-bezier(0.4,0,0.2,1); z-index:40;
+        }
+        #chat-panel.open { transform:translateX(0); position:relative; }
+
+        .chat-hdr {
+            padding: 15px 16px;
+            border-bottom: 1px solid var(--border-subtle);
+            display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+        }
+        .chat-title { font-size:15px; font-weight:600; }
+
+        .chat-close {
+            width:28px; height:28px; border-radius:var(--radius-xs);
+            background:transparent; color:var(--text-muted);
+            display:flex; align-items:center; justify-content:center;
+        }
+        .chat-close:hover { background:rgba(255,255,255,0.06); color:var(--text-primary); }
+
+        #chat-messages {
+            flex:1; padding:14px;
+            overflow-y:auto;
+            display:flex; flex-direction:column; gap:10px;
+            min-height:0;
+        }
+
+        .msg {
+            max-width:82%; padding: 9px 13px;
+            font-size:13.5px; line-height:1.45;
+            display:flex; flex-direction:column; gap:3px;
+        }
+        .msg.received { align-self:flex-start; background:var(--bg-raised); border-radius: 11px 11px 11px 3px; }
+        .msg.sent     { align-self:flex-end; background:var(--accent); color:white; border-radius: 11px 11px 3px 11px; }
+
+        .msg-text { word-break:break-word; }
+        .msg-time { font-size:10px; opacity:0.5; align-self:flex-end; }
+        .msg.sent .msg-time { opacity:0.65; }
+
+        .msg-file {
+            display:flex; align-items:center; gap:8px;
+            text-decoration:none; color:inherit; font-size:13px;
+        }
+
+        .msg-system {
+            align-self:center; font-size:11px; color:var(--text-muted);
+            background:rgba(255,255,255,0.04);
+            padding: 3px 10px; border-radius: var(--radius-pill);
+        }
+
+        #typingIndicator { padding: 4px 14px 8px; display:none; }
+        .typing-bubble {
+            display:inline-flex; align-items:center; gap:3px;
+            background:var(--bg-raised); padding: 7px 11px;
+            border-radius: 11px 11px 11px 3px;
+        }
+        .typing-dot {
+            width:6px; height:6px; border-radius:50%;
+            background:var(--text-muted); animation:typingBounce 1.2s infinite ease;
+        }
+        .typing-dot:nth-child(2) { animation-delay:.15s; }
+        .typing-dot:nth-child(3) { animation-delay:.30s; }
+        @keyframes typingBounce {
+            0%,60%,100% { transform:translateY(0); }
+            30%          { transform:translateY(-5px); }
+        }
+
+        .chat-input-row {
+            padding: 11px 13px;
+            border-top: 1px solid var(--border-subtle);
+            display:flex; align-items:center; gap:8px; flex-shrink:0;
+        }
+
+        #chat-input-field {
+            flex:1; height:38px; padding: 0 14px;
+            background: var(--bg-raised);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-pill);
+            color:var(--text-primary); font-size:13.5px;
+            transition: var(--ease);
+        }
+        #chat-input-field::placeholder { color:var(--text-muted); }
+        #chat-input-field:focus        { border-color:var(--accent); }
+
+        #btn-send {
+            width:36px; height:36px; border-radius:50%;
+            background:var(--accent); color:white;
+            display:flex; align-items:center; justify-content:center; flex-shrink:0;
+        }
+        #btn-send:hover  { background:var(--accent-hover); transform:scale(1.08); }
+        #btn-send:active { transform:scale(1); }
+
+
+        /* ============================================================
+           MOBILE — max-width 768px
+           ============================================================ */
+        @media (max-width: 768px) {
+            #nav-status  { display:none; }
+            #local-pip   { width:108px; height:76px; bottom:10px; right:10px; }
+            .controls-wrap     { bottom:14px; }
+            .ctrl-btn          { width:46px; height:46px; }
+            .ctrl-btn.end      { width:50px; height:50px; }
+            .ctrl-label        { display:none; }
+            #chat-panel { position:fixed; inset:0; width:100%; z-index:200; }
+        }
+
+    </style>
+</head>
+<body>
+
+
+<!-- ==============================================================
+     SCREEN 1 — LOGIN
+     app.js IDs: #login-screen  #username-input  #join-btn
+     ============================================================== -->
+<div id="login-screen" class="screen active">
+    <div class="login-card">
+
+        <div class="login-logo">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"/>
+                <path d="M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+            </svg>
+        </div>
+
+        <h1>Join Meeting</h1>
+        <p>Enter your display name to get started</p>
+
+        <label for="username-input" class="login-label">Your Name</label>
+        <input
+            type="text"
+            id="username-input"
+            class="login-input"
+            placeholder="e.g. Vipin Yadav"
+            autocomplete="off"
+            spellcheck="false"
+            maxlength="32"
+        />
+
+        <button id="join-btn" class="btn-join">Join Now</button>
+
+    </div>
+</div>
+
+
+<!-- ==============================================================
+     SCREEN 2 — MAIN APP
+     ============================================================== -->
+<div id="main-app" class="screen">
+
+    <!-- ── TOP BAR ──────────────────────────────────────────────── -->
+    <div class="top-bar">
+
+        <div class="brand">
+            <div class="brand-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                    <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"/>
+                    <path d="M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+                </svg>
+            </div>
+            RTC Connect
+        </div>
+
+        <!-- setNavStatus(html) se update hota hai — span.highlight / span.connected -->
+        <div id="nav-status">Waiting to connect…</div>
+
+        <!-- Participants dropdown -->
+        <div class="dropdown-anchor">
+            <button class="participants-btn" id="participants-btn">
+                <div class="online-dot"></div>
+                <span id="online-count-text">Participants (0)</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7 10l5 5 5-5H7z"/>
+                </svg>
+            </button>
+
+            <!-- updateOnlineUsers() → #online-list mein .user-row inject hote hain -->
+            <div id="online-menu">
+                <div class="dropdown-header">Online Users</div>
+                <div id="online-list">
+                    <div class="dropdown-empty">No one else is online</div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /top-bar -->
+
+
+    <!-- ── MAIN CONTENT ─────────────────────────────────────────── -->
+    <main class="main-content">
+
+        <!-- ── VIDEO STAGE ──────────────────────────────────────── -->
+        <div class="video-stage">
+
+            <div class="speaker-view" id="speaker-view">
+
+                <!-- Waiting overlay — add .hidden to hide after stream arrives -->
+                <div id="waiting-overlay">
+                    <div class="waiting-icon">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" opacity="0.5">
+                            <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+                        </svg>
+                    </div>
+                    <span class="waiting-text">Waiting for someone to join…</span>
+                </div>
+
+                <!-- Remote video — setRemoteStream() sets srcObject here -->
+                <video id="remote-video-element" class="video-el" autoplay playsinline></video>
+
+                <!-- Remote name label — add .visible to show -->
+                <div id="speaker-label"></div>
+
+                <!-- Local PiP — setLocalStream() sets srcObject on #local-video-element
+                     CSS classes: .is-sharing  .cam-off -->
+                <div id="local-pip">
+                    <div class="share-badge">🖥 Sharing</div>
+                    <div class="cam-off-msg">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M21 6.5l-4-4-15 15 1.27 1.27L5.47 17H4c-.55 0-1-.45-1-1V8c0-.55.45-1 1-1h.73L17 19.27 21 23.27l1.27-1.27L21 20.5V6.5zM17 8v7.18L7.82 7H16c.55 0 1 .45 1 1z"/>
+                        </svg>
+                        Camera Off
+                    </div>
+                    <!-- Local video — setLocalStream() targets this -->
+                    <video id="local-video-element" class="video-el" autoplay playsinline muted></video>
+                    <div id="pip-label">You</div>
+                </div>
+
+            </div><!-- /speaker-view -->
+
+            <!-- Participant strip — mesh upgrade ke liye
+                 addParticipantThumb() se .thumb cards yahan inject hote hain
+                 Empty hone pe hidden hai (:empty CSS rule) -->
+            <div id="participant-strip"></div>
+
+        </div><!-- /video-stage -->
+
+
+        <!-- ── CHAT PANEL ────────────────────────────────────────── -->
+        <!-- toggleChat() se .open class add/remove hoti hai -->
+        <aside id="chat-panel">
+
+            <div class="chat-hdr">
+                <span class="chat-title">Meeting Chat</span>
+                <button class="chat-close" id="close-chat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- appendChatMessage() se .msg divs inject hote hain -->
+            <div id="chat-messages"></div>
+
+            <!-- setupTyping() se style.display toggle hota hai -->
+            <div id="typingIndicator">
+                <div class="typing-bubble">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
+
+            <div class="chat-input-row">
+                <input type="text" id="chat-input-field" placeholder="Message…" autocomplete="off"/>
+                <button id="btn-send">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="white">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                </button>
+            </div>
+
+        </aside>
+
+    </main><!-- /main-content -->
+
+
+    <!-- ── CONTROLS BAR ──────────────────────────────────────────── -->
+    <div class="controls-wrap">
+        <div class="controls-bar">
+
+            <!-- Mic: toggleAudio() + .muted class -->
+            <button class="ctrl-btn" id="btn-mic" title="Mute / Unmute">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+                <span class="ctrl-label">Mute</span>
+            </button>
+
+            <!-- Camera: toggleVideo() + .off class -->
+            <button class="ctrl-btn" id="btn-video" title="Start / Stop Video">
+                <svg viewBox="0 0 24 24">
+                    <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14v-4z"/>
+                    <path d="M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/>
+                </svg>
+                <span class="ctrl-label">Camera</span>
+            </button>
+
+            <!-- Screen share: toggleScreenShare() + .active class -->
+            <button class="ctrl-btn" id="btn-screen" title="Share Screen">
+                <svg viewBox="0 0 24 24">
+                    <path d="M20 3H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h6v2H8v2h8v-2h-2v-2h6c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 13H4V5h16v11z"/>
+                </svg>
+                <span class="ctrl-label">Share</span>
+            </button>
+
+            <div class="ctrl-divider"></div>
+
+            <!-- Chat panel: toggleChat() + .active class -->
+            <button class="ctrl-btn" id="btn-chat" title="Toggle Chat">
+                <svg viewBox="0 0 24 24">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+                </svg>
+                <span class="ctrl-label">Chat</span>
+            </button>
+
+            <div class="ctrl-divider"></div>
+
+            <!-- End call: callEnd() + resetCallUI() -->
+            <button class="ctrl-btn end" id="btn-end" title="Leave Meeting">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/>
+                </svg>
+                <span class="ctrl-label">Leave</span>
+            </button>
+
+        </div>
+    </div>
+
+</div><!-- /main-app -->
+
+
+<!-- ==============================================================
+     SCRIPTS — Socket.IO CDN pehle, phir app.js module
+     ============================================================== -->
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script type="module" src="./app.js"></script>
+
+</body>
+</html>
