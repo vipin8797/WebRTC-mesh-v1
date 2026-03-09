@@ -20,17 +20,16 @@
 //  IMPORTS  — apne modules yahan uncomment / add karo
 // =====================================================================
 
-// import { initSocket, socket }  from "./socket/socket.js";
-// import { startWebRTC, calling, callEnd,
-//          toggleAudio, toggleVideo,
-//          toggleScreenShare, isLocalScreenSharing,
-//          setupChat, setupTyping, getFile }  from "./webrtc/index.js";
-// import { sendMessage, sendTyping }          from "./webrtc/chatManager.js";
+import { initSocket } from "./socket/socket.js";
+
 
 
 // =====================================================================
 //  DOM — HTML elements (IDs mat badlo)
 // =====================================================================
+
+console.log("app.js loaded");
+
 
 const loginScreen      = document.getElementById('login-screen');
 const mainApp          = document.getElementById('main-app');
@@ -77,6 +76,11 @@ async function handleLogin() {
     // 🔌 apna startup code yahan lagao
     // initSocket(username, { updateOnlineUsers });
     // startWebRTC(socket, { onLocalStream: setLocalStream, onRemoteStream: setRemoteStream });
+
+    
+       initSocket(username,{updateOnlineUsers});
+  
+
 
     setNavStatus(`You: <span class="highlight">${username}</span>`);
     loginScreen.classList.remove('active');
