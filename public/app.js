@@ -20,8 +20,9 @@
 //  IMPORTS  — apne modules yahan uncomment / add karo
 // =====================================================================
 
-import { initSocket } from "./socket/socket.js";
-
+import { initSocket,socket } from "./socket/socket.js";
+import { startWebRTC } from "./webrtc/index.js";
+import { startCall } from "./webrtc/negotiationManager.js";
 
 
 // =====================================================================
@@ -79,7 +80,10 @@ async function handleLogin() {
 
     
        initSocket(username,{updateOnlineUsers});
-  
+
+       startWebRTC({socket , 
+        onLocalStream:setLocalStream
+    });
 
 
     setNavStatus(`You: <span class="highlight">${username}</span>`);
@@ -342,6 +346,10 @@ export function updateOnlineUsers(allUsers, myUsername) {
             e.stopPropagation();
             const { id, name } = e.currentTarget.dataset;
             // 🔌 calling(id);
+            startCall({targetSocketId:id,
+                socket,
+                ringing:true,
+            })
             setNavStatus(`Calling <span class="highlight">${name}</span>…`);
             onlineMenu.classList.remove('open');
         });
