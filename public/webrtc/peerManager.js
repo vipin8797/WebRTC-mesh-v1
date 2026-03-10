@@ -31,7 +31,7 @@ const ICE_CONFIG = {
 // Singleton nahi — har socketId ke liye alag instance.
 // =====================================================
 
-export function createPeer(socketId) {
+export function createPeer(socketId,{onLocalStream}) {
 
     // Already hai to wahi return karo
     if (callState.peers[socketId]) {
@@ -98,7 +98,10 @@ export function createPeer(socketId) {
     // STEP 6: State mein save karo
     callState.peers[socketId] = pc;
 
-    console.log("Peer created for:", socketId);
+    if(callState.peers[socketId]){
+        console.log("Peer created for:", callState.peers[socketId]);
+    }
+
     return pc;
 }
 
