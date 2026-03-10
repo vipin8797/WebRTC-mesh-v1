@@ -12,9 +12,9 @@ let ringResolve = null;
 // }
 
 export const ringAnswer = async({socket,targetSocketId})=>{
-    console.log("ring answering true")
-   const result =  confirm("Accept the call");
-            // console.log("alert result: ",result);
+    const result =  confirm("Accept the call");
+    // console.log("alert result: ",result);
+    console.log("ring answering ",result);
     socket.emit("ringing-answer",{
         to:targetSocketId,
         accepted:result,
@@ -55,14 +55,7 @@ export const startCall = async({targetSocketId,socket,ringing})=>{
 
 
  //Ringing Feature
-    //   if(ringing){
-    //     console.log("target is ringing");
-
-    //     socket.emit("ringing-ask",({from:socket.id, to:targetSocketId}));
-
-    //   }  
-
-    if(ringing){
+     if(ringing){
 
     isTargetAvailable = await new Promise((resolve)=>{
           ringResolve  = resolve;
