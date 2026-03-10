@@ -59,11 +59,7 @@ io.on("connection", (socket) => {
             console.error("usernmae is not found in backend event");
             return;
         }
-        // //checking for duplicte socketId
-        // if(allUsers[socket.id]){
-        //     console.warn("dublicate socket id is found");
-        //     socket.emit('forced-relode');
-        // }
+
 
         allUsers[socket.id]= {username:username};
         console.log("joined,",username);
@@ -80,6 +76,22 @@ io.on("connection", (socket) => {
         io.emit("updated-users", (allUsers));
     });
 
+
+
+
+
+
+//Ringing Event 
+socket.on("ringing-ask", ({ to, from }, callback) => {
+   console.log("forwarding ringing ask");
+    socket.to(to).emit("ringing-ask", { from });
+});
+
+//Ringing answer
+socket.on("ringing-answer",({to,accepted})=>{
+    console.log("forwarding ringing answer",accepted);
+    socket.to(to).emit("ringing-answer",{accepted});
+})
 
 
 });
