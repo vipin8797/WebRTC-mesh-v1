@@ -8,7 +8,7 @@ import { startSignalling } from "./signalingManager.js";
 // let _socket = null;
 let _onLocalStream = null;
 let _onRemoteStream = null;
-
+let _socket = null;
 
 
 
@@ -23,7 +23,7 @@ export const setupPeer = async(socketId)=>{
        return;
     }
 
-    //Adding all Events for Peer Objec 
+//Adding all Events for Peer Objec 
 
   // adding Local Tracks to peerObje
      if(callState.localStream){
@@ -35,12 +35,36 @@ export const setupPeer = async(socketId)=>{
   
  //adding remote stream to peer 
      callState.peers[socketId].ontrack = (event)=>{
+      console.log("ontrack event hittedd");
+      
             const stream = event.streams[0];
-            callState.remoteStreams[socketId] = stream;
-          if (_onRemoteStream) _onRemoteStream(socketId, stream);
+            callState.remoteStreams[socketId] = stream; //saving in callState
+
+            console.log(`remoteStream: ${callState.remoteStreams[socketId]} added for ${callState.peers[socketId]}`);
+          if (_onRemoteStream){
+             _onRemoteStream(socketId, stream,{mirror:true});
+             console.log('onRemoteStream is called');
+            }else{
+               console.log("no remoteStream function is found.");
+            }
+             
      };
     
+
+  //handle iceCandidate event 
+  //emit candidate after finishing iceGathering
+  callState.peers[socketId].onicecandidate = (event) => {
+    if(!event.candidate) return;
+    _socket.emit("icecandidate", {
+        to: callState.currentTarget[socketId], // ← socketId se target lo
+        from: _socket.id,
+        candidate: event.candidate
+    });
+    console.log("emitting ICE candidate to server");
+}   
     
+
+
     
     }    
 
@@ -60,7 +84,7 @@ export const startWebRTC = async({socket ,onLocalStream ,onRemoteStream})=>{
     // _socket = socket;
     _onLocalStream = onLocalStream;
     _onRemoteStream = onRemoteStream;
-
+    _socket = socket;
 
 
        await startMedia();
