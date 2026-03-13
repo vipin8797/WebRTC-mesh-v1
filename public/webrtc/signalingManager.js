@@ -1,6 +1,5 @@
 import callState from "./state.js"
-import { ringAnswer,setAnswer } from "./negotiationManager.js"
-
+import { ringAnswer,setAnswer, handleOffer } from "./negotiationManager.js"
 
 
 
@@ -31,6 +30,33 @@ socket.on("ringing-answer",({accepted})=>{
 
 });
 
+
+
+
+// Offer Recived from server 
+socket.on("offer",({from, offer})=>{
+    // console.log("offer event triggered");
+       if(!from || !offer){
+        console.error("data is not recived");
+        return;
+       }else{
+        console.log(`recived offer:${offer} from:${from}`);
+       }
+        
+   handleOffer({socket,offer,from});
+
+})
+
+
+//Answer recived from Calleee 
+socket.on("answer",({from , answer})=>{
+    if(!from || !answer){
+        console.errror("data is not found");
+        return;
+    }
+
+    console.log("answer recived now going forward");
+})
 
 
 
