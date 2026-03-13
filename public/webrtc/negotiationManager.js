@@ -88,7 +88,8 @@ const createOffer = async(socket,targetSocketId)=>{
    socket.emit("offer",({to:targetSocketId,from:socket.id, offer:offer}));
 
 //    console.log("local offer created and sent",offer);
-   console.log(`local offer created ${offer} from: ${socket.id} send to:${targetSocketId}`)
+   console.log(`local offer created ${offer} from: ${socket.id} send to:${targetSocketId}`);
+   console.log("existed peers: ",callState.peers);
     
 }
 
@@ -153,7 +154,7 @@ export const handleOffer = async({socket, from,offer})=>{
     //Emmmiting answer to server 
     socket.emit("answer",({from:socket.id, to:from, answer:answer}));
    
-
+      callState.currentTarget[socket.id] = from; //updating target socket id
       console.log(`offer accepted, answer created ${answer} and sent ${from}`)  
 
 }else if(callState.peers[socket.id].signalingState !== "stable"){
@@ -197,6 +198,7 @@ export const handleOffer = async({socket, from,offer})=>{
     //Emmmiting answer to server 
     socket.emit("answer",({from:socket.id, to:from, answer:answer}));
     
+    callState.currentTarget[socket.id] = from; //updating target socket id
     console.log(`offer accepted while on another call, answer created ${answer} and sent ${from}`);
 }else{
     console.log("case does not match");
@@ -215,14 +217,75 @@ export const handleAnswer = async({socket,from ,answer})=>{
         return;
     }
 
-    //checking signallingstate whether we have offer or not 
+     console.log(`got answer ${answer} from: ${from}`);
+     console.log("all existed peer: ",callState.peers);
+  
 
-    //Set remote description from answer
+     const targetPeer  = callState.peers[from];
+     if(!targetPeer){
+        console.log("setting answer in our peer");
 
-    //Flush queued ICE candidates
-
+    //CASE 1 -- if we are not on any call then no peer must exist for from
+    //             ,then set answer in ourt getPeerObj
     
-    console.log("answer accepted");
+        //checkin if our initial peer obj exist
+        if(!callState.peers[socket.id]){
+             console.error("out peer is not found");
+             return
+        }
+        
+       //checking signallingstate whether we have offer or not
+         if(callState.peers[socket.id].signalingState !== "have-local-offer"){
+            console.error("we must have local offer before we accept answer");
+            return;
+         }  
+        //Set remote description from answer
+        await callState.peers[socket.id].setRemoteDescription(answer);
+
+        //Flush queued ICE candidates
+          if(callState.candidateQueue[socket.id]){
+               for(const candidate of callState.candidateQueue[socket.id]){
+            try{
+              await callState.peers[socket.id].addIceCandidate(candidate);
+              console.log("flusshing candidate Quueue");
+            }catch(err){
+                console.error("Error while flushing ICE from queue ",err);
+            }
+        }
+        delete callState.candidateQueue[socket.id];
+          }
+
+          callState.currentTarget[socket.id] = from; //updating target socket id
+
+        console.log("answer accepted ,while not on any call");
+
+
+     }else{
+//CASE 2 -- we are already on call then peer obj for from must exist 
+          
+        //setting answer to target peer 
+        await targetPeer.setRemoteDescription(answer);
+
+         //Flush queued ICE candidates
+          if(targetPeer){
+               for(const candidate of targetPeer){
+            try{
+              await targetPeer.addIceCandidate(candidate);
+              console.log("flusshing candidate Quueue");
+            }catch(err){
+                console.error("Error while flushing ICE from queue ",err);
+            }
+        }
+        delete callState.candidateQueue[from];
+          }
+
+          callState.currentTarget[socket.id] = from; //updating target socket id
+
+        console.log("answer accepted while on any call already ");
+       
+
+     }
+    
 }
 
 
@@ -232,6 +295,50 @@ export const handleAnswer = async({socket,from ,answer})=>{
 
 
 
+
+//Function to handle ICE Candiates 
+export const iceHandler = async({socket, from ,candidate})=>{
+    if(!from || !candidate || !socket){
+        console.error("data not found");
+        return;
+    }
+
+    console.log("getting ice candidates: ",candidate, "from: ",from);
+    console.log("current Peers: ",callState.peers);
+
+   
+ //CASE 1 -- Not on Any Calll 
+      const pc = callState.peers[socket.id];
+    //   const pc2 = callState[from];
+
+        if(!pc){
+            console.error("peer obj not found");
+            return;
+        }
+
+        // if(pc){
+
+        // }
+
+        // RemoteDescription set hai ya nahi?
+    if(pc.remoteDescription && pc.remoteDescription.type) {
+        //  Set hai — seedha add karo
+        pc.addIceCandidate(new RTCIceCandidate(candidate));
+    } else {
+        //  Set nahi — queue mein daalo
+        if(!callState.candidateQueue[from]) {
+            callState.candidateQueue[from] = [];
+        }
+        callState.candidateQueue[from].push(candidate);
+        console.log(`pushing candidate in queue in ${pc}`);
+    }
+
+
+//CASE 2 -- Not on Any Calll
+
+     
+
+}
 
 
 
