@@ -6,7 +6,7 @@
   remoteStreams:{},
   dataChannels:{},
   candidateQueue:{},
-  
+  currentTarget: {},  // temporary fix jugad
 
 };
 
