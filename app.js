@@ -117,6 +117,17 @@ socket.on("answer",({to, from ,answer})=>{
 })
 
 
+//ICE candidate forwarding 
+socket.on("icecandidate",({to, from ,candidate})=>{
+    if(!to || !from || !candidate){
+        console.log("data not found");
+        return;
+    }
+
+socket.to(to).emit("icecandidate", ({from ,candidate}));
+console.log("ice candate forwarding");
+})
+
 
 
 
