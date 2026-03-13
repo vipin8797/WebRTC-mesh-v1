@@ -1,5 +1,7 @@
 import callState from "./state.js"
-import { ringAnswer,setAnswer, handleOffer } from "./negotiationManager.js"
+import { ringAnswer,setAnswer, handleOffer,
+    handleAnswer, iceHandler
+ } from "./negotiationManager.js"
 
 
 
@@ -55,9 +57,42 @@ socket.on("answer",({from , answer})=>{
         return;
     }
 
-    console.log("answer recived now going forward");
+   handleAnswer({socket,from,answer});
 })
 
+
+
+
+
+
+//ICE Candidate Listner 
+socket.on("icecandidate", ({ from, candidate }) => {
+    if(!from || !candidate){
+        console.warn("no data recived");
+        return;
+    }
+
+    iceHandler({socket, from ,candidate});
+})
+// socket.on("icecandidate", ({ from, candidate }) => {
+    
+//     const pc = callState.peers[from];
+    
+//     // Peer hi nahi hai
+//     if(!pc) return;
+
+//     // RemoteDescription set hai ya nahi?
+//     if(pc.remoteDescription && pc.remoteDescription.type) {
+//         // ✅ Set hai — seedha add karo
+//         pc.addIceCandidate(new RTCIceCandidate(candidate));
+//     } else {
+//         // ⏳ Set nahi — queue mein daalo
+//         if(!callState.candidateQueue[from]) {
+//             callState.candidateQueue[from] = [];
+//         }
+//         callState.candidateQueue[from].push(candidate);
+//     }
+// });
 
 
 
