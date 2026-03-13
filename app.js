@@ -94,6 +94,42 @@ socket.on("ringing-answer",({to,accepted})=>{
 })
 
 
+
+
+//Offer Forwarding 
+socket.on("offer",({to, from ,offer})=>{
+    if(!to || !from || !offer){
+        console.log("data not recived");
+        return;
+    }
+   socket.to(to).emit("offer", {from:from, offer:offer});
+    console.log(`offer: ${offer} forwarded from:${from} to:${to}`);
+})
+
+//Answer Forwarding 
+socket.on("answer",({to, from ,answer})=>{
+    if(!to || !from || !answer){
+        console.log("data is not found");
+        return;
+    }
+    socket.to(to).emit("answer",({from,answer}));
+    console.log(`answer: ${answer} forwarded from:${from} to:${to}`);
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 });
 
 
