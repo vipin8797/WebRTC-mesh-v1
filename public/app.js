@@ -82,7 +82,8 @@ async function handleLogin() {
        initSocket(username,{updateOnlineUsers});
 
        startWebRTC({socket , 
-        onLocalStream:setLocalStream
+        onLocalStream:setLocalStream,
+        onRemoteStream:setRemoteStream
     });
 
 
@@ -231,6 +232,7 @@ export function setRemoteStream(socketId, stream, options = {}) {
     }
 
     waitingOverlay.classList.add('hidden');
+    console.log("setRemoteStream executed");
 }
 
 /**
