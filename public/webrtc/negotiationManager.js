@@ -1,5 +1,6 @@
 import callState from "./state.js";
 import { setupPeer } from "./index.js";
+// import { startWebRTC } from "./index.js";
 
 let isTargetAvailable = null;
 let ringResolve = null;
@@ -12,6 +13,10 @@ let ringResolve = null;
 export const ringAnswer = async({socket,targetSocketId})=>{
     const result =  confirm("Accept the call");
     // console.log("alert result: ",result);
+    if(result){
+        await setupPeer(targetSocketId);
+
+    }
     console.log("ring answering ",result);
     socket.emit("ringing-answer",{
         to:targetSocketId,
@@ -22,6 +27,7 @@ export const ringAnswer = async({socket,targetSocketId})=>{
 //Function to Accept Ring Answer from calee
 export const setAnswer = ({accepted})=>{
     if(accepted){
+
         ringResolve({accepted});
         console.log("answer set Promise resolves to ",accepted);
     }else{
@@ -33,56 +39,37 @@ export const setAnswer = ({accepted})=>{
 
 
 
-//Function to create Offer If we already on another call
-const createOfferWhileBusy = async(socket, targetSocketId)=>{
-
-    //creating a new peer obj for target
-     setupPeer(targetSocketId);
-
-
-     //creating offer to other peper
-     const offer = await callState.peers[targetSocketId].createOffer();
-
-     if(!offer){
-        console.error("ofer not created");
-        return;
-     }
-
-     //setting offer to localDescription 
-     await callState.peers[targetSocketId].setLocalDescription(offer);
-
-     //Emmiting offer 
-     socket.emit("offer",({to:targetSocketId, from:socket.id, offer:offer}));
-
-     console.log("Local offer created and sent while busy",offer);
-
-
-}
-
 //Function to creat offer if Not on Any call already
 const createOffer = async(socket,targetSocketId)=>{
-    
+     if(!socket || !targetSocketId){
+        console.error("no data found");
+        return;
+     }
     //checking if peer exists
-    if(!callState.peers[socket.id]){
+    if(!callState.peers[targetSocketId]){
         console.error("Peer not found");
         return;
     }
 
    //checking if we are not on any call
-   if(callState.peers[socket.id].connectionState === "connected" || 
-      callState.peers[socket.id].connectionState === "connecting"){
-          createOfferWhileBusy(socket, targetSocketId);
+   if(callState.peers[targetSocketId].connectionState === "connected" || 
+      callState.peers[targetSocketId].connectionState === "connecting"){
+        //   createOfferWhileBusy(socket, targetSocketId);
+
+        console.warn("already on a call");
+        return;
    }
 
    //creating offer
-   const offer = await callState.peers[socket.id].createOffer();
+   console.log("allPeers: ",callState.peers);
+   const offer = await callState.peers[targetSocketId].createOffer();
    if(!offer){
     console.warn("offer does not exist");
     return;
    }
 
    //Setting offer to localDescription
-   await callState.peers[socket.id].setLocalDescription(offer);
+   await callState.peers[targetSocketId].setLocalDescription(offer);
 
    //Emmmiting Offer to calee 
    socket.emit("offer",({to:targetSocketId,from:socket.id, offer:offer}));
@@ -110,72 +97,35 @@ export const handleOffer = async({socket, from,offer})=>{
 
 
      //checking current peer Obj 
-        if(!callState.peers[socket.id]){
-          console.error("peer is not exist yet for ",socket.id);
-          console.log("no peer found for ",socket.id, "  all:",callState.peers);
-          return;
+        if(!callState.peers[from]){
+        //   console.error("peer is not exist yet for ",socket.id);
+        //   console.log("no peer found for ",socket.id, "  all:",callState.peers);
+          callState.peers[from] = setupPeer(from);
+          console.log("creating peer for caller: ",callState.peers[from]);
+          console.log("all Peers: ",callState.peers);
+          
         }else{
-            console.log("Have current peer obje:",callState.peers);
+            // console.log("Have current peer obje:",callState.peers);
+            //  console.log("creating peer for caller: ",callState.peers[from]);
+          console.log("all Peers: ",callState.peers);
         }
 
   
- //CASE 1 --    Not on Any Other Calll   
+   
     //checking connection signalling state 
-      if(callState.peers[socket.id].signalingState === "stable"){
-        console.log("fist call: ",callState.peers[socket.id]);
-        
+      if(callState.peers[from].signalingState !== "stable"){
+        // console.log("fist call: ",callState.peers[from]);
+        console.warn("signalingState is not stable of ",callState.peers[from]);
+        return;
+      }
         
        //Set remote description
-     await callState.peers[socket.id].setRemoteDescription(offer);
-
-
-       //Flush any queued ICE candidates  if candidates already arrived
-      //check if ice candidate already arrived
-         if(callState.candidateQueue[socket.id]){ 
-        for(const candidate of callState.candidateQueue[socket.id]){
-            try{
-              await callState.peers[socket.id].addIceCandidate(candidate);
-              console.log("flusshing candidate Quueue");
-            }catch(err){
-                console.error("Error while flushing ICE from queue ",err);
-            }
-        }
-        delete callState.candidateQueue[socket.id];
-             }
-
-         // Create and send answer
-    const answer = await callState.peers[socket.id].createAnswer();
-
-
-     //saving answer 
-    await callState.peers[socket.id].setLocalDescription(answer);
-
-
-    //Emmmiting answer to server 
-    socket.emit("answer",({from:socket.id, to:from, answer:answer}));
-   
-      callState.currentTarget[socket.id] = from; //updating target socket id
-      console.log(`offer accepted, answer created ${answer} and sent ${from}`)  
-
-}else if(callState.peers[socket.id].signalingState !== "stable"){
- // CASE 2 -- Alredy on Another Call
-      
-       //PeerObj for caller does not exit create it 
-       if(callState.peers[from]){
-        console.log("already have peer obj for caller");
-        return;
-       }
-        
-       //Creating peer obj for caller 
-       setupPeer(from);
- 
-     //Set remote description
      await callState.peers[from].setRemoteDescription(offer);
 
 
        //Flush any queued ICE candidates  if candidates already arrived
-      //check if ice candidate already arrived 
-      if(callState.candidateQueue[from]){ 
+      //check if ice candidate already arrived
+         if(callState.candidateQueue[from]){ 
         for(const candidate of callState.candidateQueue[from]){
             try{
               await callState.peers[from].addIceCandidate(candidate);
@@ -185,7 +135,7 @@ export const handleOffer = async({socket, from,offer})=>{
             }
         }
         delete callState.candidateQueue[from];
-    }
+             }
 
          // Create and send answer
     const answer = await callState.peers[from].createAnswer();
@@ -197,15 +147,10 @@ export const handleOffer = async({socket, from,offer})=>{
 
     //Emmmiting answer to server 
     socket.emit("answer",({from:socket.id, to:from, answer:answer}));
-    
-    callState.currentTarget[socket.id] = from; //updating target socket id
-    console.log(`offer accepted while on another call, answer created ${answer} and sent ${from}`);
-}else{
-    console.log("case does not match");
-    return;
-}
+   
+    //   callState.currentTarget[socket.id] = from; //updating target socket id
+      console.log(`offer accepted, answer created ${answer} and sent ${from}`)  
 
-    
 }
 
 
@@ -219,58 +164,28 @@ export const handleAnswer = async({socket,from ,answer})=>{
 
      console.log(`got answer ${answer} from: ${from}`);
      console.log("all existed peer: ",callState.peers);
-  
+     
 
-     const targetPeer  = callState.peers[from];
-     if(!targetPeer){
-        console.log("setting answer in our peer");
 
-    //CASE 1 -- if we are not on any call then no peer must exist for from
-    //             ,then set answer in ourt getPeerObj
-    
         //checkin if our initial peer obj exist
-        if(!callState.peers[socket.id]){
-             console.error("out peer is not found");
+        if(!callState.peers[from]){
+             console.error("target peer is not found");
              return
         }
         
        //checking signallingstate whether we have offer or not
-         if(callState.peers[socket.id].signalingState !== "have-local-offer"){
+         if(callState.peers[from].signalingState !== "have-local-offer"){
             console.error("we must have local offer before we accept answer");
             return;
          }  
         //Set remote description from answer
-        await callState.peers[socket.id].setRemoteDescription(answer);
+        await callState.peers[from].setRemoteDescription(answer);
 
         //Flush queued ICE candidates
-          if(callState.candidateQueue[socket.id]){
-               for(const candidate of callState.candidateQueue[socket.id]){
+          if(callState.candidateQueue[from]){
+               for(const candidate of callState.candidateQueue[from]){
             try{
-              await callState.peers[socket.id].addIceCandidate(candidate);
-              console.log("flusshing candidate Quueue");
-            }catch(err){
-                console.error("Error while flushing ICE from queue ",err);
-            }
-        }
-        delete callState.candidateQueue[socket.id];
-          }
-
-          callState.currentTarget[socket.id] = from; //updating target socket id
-
-        console.log("answer accepted ,while not on any call");
-
-
-     }else{
-//CASE 2 -- we are already on call then peer obj for from must exist 
-          
-        //setting answer to target peer 
-        await targetPeer.setRemoteDescription(answer);
-
-         //Flush queued ICE candidates
-          if(targetPeer){
-               for(const candidate of targetPeer){
-            try{
-              await targetPeer.addIceCandidate(candidate);
+              await callState.peers[from].addIceCandidate(candidate);
               console.log("flusshing candidate Quueue");
             }catch(err){
                 console.error("Error while flushing ICE from queue ",err);
@@ -279,12 +194,12 @@ export const handleAnswer = async({socket,from ,answer})=>{
         delete callState.candidateQueue[from];
           }
 
-          callState.currentTarget[socket.id] = from; //updating target socket id
+        //   callState.currentTarget[socket.id] = from; //updating target socket id
 
-        console.log("answer accepted while on any call already ");
-       
+        console.log("answer accepted:,",callState.peers[from]);
 
-     }
+
+
     
 }
 
@@ -307,19 +222,14 @@ export const iceHandler = async({socket, from ,candidate})=>{
     console.log("current Peers: ",callState.peers);
 
    
- //CASE 1 -- Not on Any Calll 
-      const pc = callState.peers[socket.id];
-    //   const pc2 = callState[from];
+      const pc = callState.peers[from];
 
         if(!pc){
             console.error("peer obj not found");
             return;
         }
 
-        // if(pc){
-
-        // }
-
+   
         // RemoteDescription set hai ya nahi?
     if(pc.remoteDescription && pc.remoteDescription.type) {
         //  Set hai — seedha add karo
@@ -334,11 +244,11 @@ export const iceHandler = async({socket, from ,candidate})=>{
     }
 
 
-//CASE 2 -- Not on Any Calll
+
+}
 
      
 
-}
 
 
 
@@ -349,55 +259,55 @@ export const iceHandler = async({socket, from ,candidate})=>{
 
 //StartCall function
 export const startCall = async({targetSocketId,socket,ringing})=>{
-
-    if(!targetSocketId){
-        console.error("target socket id not found");
-        return;
-    }
-
-    if(!callState.localStream){
-        console.warn("local media must before calling others");
-        return;
-    }
-
-    if(!callState.peers[socket.id]){
-        console.error("Our peer obj is not found for",socket.id);
-        return;
-    }
-    
-   
-
-    console.log("calling:",targetSocketId);
+       console.log("startCall function is callled");
+  
+        if(!targetSocketId || !socket ){
+            console.error("no data found");
+            return;
+        }
 
 
  //Ringing Feature
-     if(ringing){
+    if (ringing) {
 
-    isTargetAvailable = await new Promise((resolve)=>{
-          ringResolve  = resolve;
-   socket.emit(
-      "ringing-ask",
-      { from: socket.id, to: targetSocketId },
-      (response)=>{
-         resolve(response.accepted)
-      }
+        isTargetAvailable = await new Promise((resolve) => {
+            ringResolve = resolve;
+            socket.emit(
+                "ringing-ask",
+                { from: socket.id, to: targetSocketId },
+                (response) => {
+                    resolve(response.accepted)
+                }
 
-   )
+            )
 
-})
+        })
 
-      if(isTargetAvailable.accepted){
-        console.log("we can call ",isTargetAvailable);
+        if (isTargetAvailable.accepted) {
+            console.log("we can call ", isTargetAvailable);
 
-//Ringing and Call accepted
-      
-      await createOffer(socket, targetSocketId);
+            //Ringing and Call accepted
+        
+             //creating peer for target in our side  and storing in callState
+         await setupPeer(targetSocketId);
 
-      }else{
-        console.log("call rejected ",isTargetAvailable);
-      }
-       
-}//if no ringing
+
+
+
+            if (!callState.peers[targetSocketId]) {
+                console.warn("peer for target does not exist yet.");
+                return;
+            }
+            console.log("calling:", targetSocketId);
+
+              await createOffer(socket, targetSocketId);
+
+        } else {
+            console.log("call rejected ", isTargetAvailable);
+        }
+
+    }//if no ringing
+
 
 
 
