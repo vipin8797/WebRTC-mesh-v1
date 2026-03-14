@@ -7,7 +7,7 @@ import callState from "./state.js"
 
 
 //Function To Start Media stream
-export const startMedia = async()=>{
+export const startMedia = async({onLocalStream})=>{
 
     try{
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -34,7 +34,8 @@ export const startMedia = async()=>{
         callState.localStream = stream;
         console.log("mediaStream accessed: ",callState.localStream);
         console.log("localTracks: ",callState.localStream.getTracks());
-
+        onLocalStream(callState.localStream);
+        
     }catch(err){
         console.error(err);
     }
