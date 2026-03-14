@@ -13,16 +13,20 @@ export const startSignalling = async(socket)=>{
 
 //Asking for answer accept or reject
 socket.on("ringing-ask",({from})=>{
-    console.log("someone ringing us");
-
-    if(callState.peers[socket.id]){
-
-       if(callState.peers[socket.id].connectionState !== "connected"){
-
-          ringAnswer({socket,targetSocketId:from})
-
-       } 
+    console.log(from," ringing us");
+    // console.log("from: ",from);
+    // console.log("peers: ",callState.peers);
+   
+    if(callState.peers[from]){
+        if(callState.peers[from].connectionState !== "connected"){
+            console.warn('already connected to him');
+            return;
+        } 
     }
+    ringAnswer({socket,targetSocketId:from})
+       
+
+
 });
 
 
