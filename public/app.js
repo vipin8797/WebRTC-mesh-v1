@@ -23,7 +23,7 @@
 import { initSocket,socket } from "./socket/socket.js";
 import { startWebRTC } from "./webrtc/index.js";
 import { startCall } from "./webrtc/negotiationManager.js";
-
+import { startMedia } from "./webrtc/mediaManager.js";
 
 // =====================================================================
 //  DOM — HTML elements (IDs mat badlo)
@@ -80,7 +80,7 @@ async function handleLogin() {
 
     
        initSocket(username,{updateOnlineUsers});
-
+       await startMedia({onLocalStream:setLocalStream});
        startWebRTC({socket , 
         onLocalStream:setLocalStream,
         onRemoteStream:setRemoteStream
