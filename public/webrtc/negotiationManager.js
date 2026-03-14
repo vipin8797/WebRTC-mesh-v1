@@ -100,13 +100,14 @@ export const handleOffer = async({socket, from,offer})=>{
         if(!callState.peers[from]){
         //   console.error("peer is not exist yet for ",socket.id);
         //   console.log("no peer found for ",socket.id, "  all:",callState.peers);
-          callState.peers[from] = setupPeer(from);
+          await callState.peers[from];
           console.log("creating peer for caller: ",callState.peers[from]);
           console.log("all Peers: ",callState.peers);
           
         }else{
             // console.log("Have current peer obje:",callState.peers);
             //  console.log("creating peer for caller: ",callState.peers[from]);
+            // await callState.peers[from];
           console.log("all Peers: ",callState.peers);
         }
 
@@ -149,9 +150,19 @@ export const handleOffer = async({socket, from,offer})=>{
     socket.emit("answer",({from:socket.id, to:from, answer:answer}));
    
     //   callState.currentTarget[socket.id] = from; //updating target socket id
-      console.log(`offer accepted, answer created ${answer} and sent ${from}`)  
+      console.log(`offer accepted, answer created ${answer} and sent ${from}`)
+      
+   //emmit to get add in room 
+   socket.emit("room-update",({me:socket.id, to:from}));   
 
 }
+
+
+
+
+
+
+
 
 
 
@@ -197,6 +208,8 @@ export const handleAnswer = async({socket,from ,answer})=>{
         //   callState.currentTarget[socket.id] = from; //updating target socket id
 
         console.log("answer accepted:,",callState.peers[from]);
+
+
 
 
 
@@ -257,6 +270,7 @@ export const iceHandler = async({socket, from ,candidate})=>{
 
 
 
+
 //StartCall function
 export const startCall = async({targetSocketId,socket,ringing})=>{
        console.log("startCall function is callled");
@@ -306,7 +320,23 @@ export const startCall = async({targetSocketId,socket,ringing})=>{
             console.log("call rejected ", isTargetAvailable);
         }
 
-    }//if no ringing
+    }
+    //Calling Without Ringing
+
+
+        // //creating peer for target in our side  and storing in callState
+        //  await setupPeer(targetSocketId);
+
+
+
+
+        //     if (!callState.peers[targetSocketId]) {
+        //         console.warn("peer for target does not exist yet.");
+        //         return;
+        //     }
+        //     console.log("calling:", targetSocketId);
+
+        //       await createOffer(socket, targetSocketId);
 
 
 
@@ -314,6 +344,32 @@ export const startCall = async({targetSocketId,socket,ringing})=>{
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+//Function to join with all Left memebers of Room 
+export const joinRoom = async({socket,data})=>{
+   if(!socket || !data){
+    console.log("not data found");
+    return;
+   }
+
+    data.forEach((targetSocketId)=>{
+        startCall({targetSocketId,socket,ringing:true});
+        console.log("calling: ",targetSocketId);
+    });
+
+}
 
 
 
