@@ -41,7 +41,8 @@ app.get("/", (req, res) => {
 // ─── Online Users Store ───────────────────────────
 // { socketId: { username } }
 let allUsers = {};
-
+let rooms = {};
+let userRooms = {};
 
 // =====================================================
 // SOCKET.IO — SIGNALING SERVER
@@ -133,6 +134,46 @@ console.log("ice candate forwarding");
 
 
 
+
+//Room Update Handler
+socket.on("room-update", ({ me, to }) => {
+    if(!me || !to) return;
+
+    const existingRoomId = userRooms[me] || userRooms[to];
+
+    if(existingRoomId) {
+        // Pehle se room hai → C aa raha hai
+        rooms[existingRoomId].add(me);
+        rooms[existingRoomId].add(to);
+        userRooms[me] = existingRoomId;
+        userRooms[to] = existingRoomId;
+
+        // Existing users — me aur to dono hatao
+        const existingUsers = Array.from(rooms[existingRoomId])
+            .filter(id => id !== me)
+            .filter(id => id !== to);
+
+        if(existingUsers.length > 0) {
+            //  C ko existing users ki list bhejo
+            io.to(to).emit("existing-users", existingUsers);
+
+            // //  Existing users (A, B) ko batao C aaya
+            // existingUsers.forEach(userId => {
+            //     io.to(userId).emit("new-user-joined", { socketId: to });
+            // });
+        }
+
+    } else {
+        // Pehli baar A + B → naya room, kisi ko kuch mat bhejo
+        const roomId = `room_${Date.now()}`;
+        rooms[roomId] = new Set([me, to]);
+        userRooms[me] = roomId;
+        userRooms[to] = roomId;
+    }
+
+    console.log("rooms:", rooms);
+    console.log("userRooms:", userRooms);
+});
 
 
 
