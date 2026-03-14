@@ -23,6 +23,9 @@ export const setupPeer = async(socketId)=>{
        return;
     }
 
+    console.log("allPeers from setupPeers :",callState.peers);
+
+
 //Adding all Events for Peer Objec 
 
   // adding Local Tracks to peerObje
@@ -56,7 +59,7 @@ export const setupPeer = async(socketId)=>{
   callState.peers[socketId].onicecandidate = (event) => {
     if(!event.candidate) return;
     _socket.emit("icecandidate", {
-        to: callState.currentTarget[socketId], // ← socketId se target lo
+        to: socketId,
         from: _socket.id,
         candidate: event.candidate
     });
@@ -80,6 +83,10 @@ export const setupPeer = async(socketId)=>{
 
 
 export const startWebRTC = async({socket ,onLocalStream ,onRemoteStream})=>{
+   if(!socket || !onLocalStream || !onRemoteStream){
+      console.error("not data found");
+      return;
+   }
     //storing varaibles and callback globally in file 
     // _socket = socket;
     _onLocalStream = onLocalStream;
@@ -87,13 +94,13 @@ export const startWebRTC = async({socket ,onLocalStream ,onRemoteStream})=>{
     _socket = socket;
 
 
-       await startMedia();
-       console.log("media started");
+      //  await startMedia();
+      //  console.log("media started");
 
     //   createPeer(socket.id,{
     //     onLocalStream
     //   });
-    setupPeer(socket.id);
+   //  setupPeer(socket.id);
    
        startSignalling(socket);
 
