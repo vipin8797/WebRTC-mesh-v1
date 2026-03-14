@@ -1,6 +1,6 @@
 import callState from "./state.js"
 import { ringAnswer,setAnswer, handleOffer,
-    handleAnswer, iceHandler
+    handleAnswer, iceHandler, joinRoom
  } from "./negotiationManager.js"
 
 
@@ -78,25 +78,32 @@ socket.on("icecandidate", ({ from, candidate }) => {
 
     iceHandler({socket, from ,candidate});
 })
-// socket.on("icecandidate", ({ from, candidate }) => {
-    
-//     const pc = callState.peers[from];
-    
-//     // Peer hi nahi hai
-//     if(!pc) return;
 
-//     // RemoteDescription set hai ya nahi?
-//     if(pc.remoteDescription && pc.remoteDescription.type) {
-//         // ✅ Set hai — seedha add karo
-//         pc.addIceCandidate(new RTCIceCandidate(candidate));
-//     } else {
-//         // ⏳ Set nahi — queue mein daalo
-//         if(!callState.candidateQueue[from]) {
-//             callState.candidateQueue[from] = [];
-//         }
-//         callState.candidateQueue[from].push(candidate);
-//     }
-// });
+
+
+
+//ROOM Meembers lists listner
+socket.on("existing-users",(data)=>{
+    console.log("Other room Mememeber: ",data);
+
+    //We have to call users in the data 
+    joinRoom({socket,data});
+    console.log("Users in rooms: ", data);
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
